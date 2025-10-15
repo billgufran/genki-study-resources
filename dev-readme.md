@@ -6,6 +6,101 @@ This document provides a technical overview of the Genki Study Resources applica
 
 Genki Study Resources is a static web application designed to help students practice Japanese with the Genki textbook series. The application is built with HTML, CSS, and JavaScript, and does not have a backend. All of the exercises and content are stored in HTML files, and the application logic is handled by JavaScript.
 
+## Modern Tooling & Sync Layer
+
+The fork adds installable PWA support, passwordless authentication, and Supabase-backed sync while keeping the legacy JavaScript untouched.
+
+### Toolchain
+
+*   Install dependencies with `pnpm install` (the repo tracks a `pnpm-lock.yaml`).
+*   New TypeScript source lives in `src/` and compiles to `resources/javascript/modules/*.js`.
+*   Build assets with `pnpm run build` (or `pnpm run build:ts` / `pnpm run build:sw`). The build emits the service worker to `resources/javascript/sw.js` and updates precache manifests via Workbox CLI.
+*   Generated files (`resources/javascript/modules/*.js`, `resources/javascript/sw.js`, and source maps) should be rebuilt whenever TypeScript changes are made.
+
+### Runtime Configuration
+
+Create `resources/javascript/config.js` (not committed; see `resources/javascript/config.example.js`) with your Supabase project URL and anon key:
+
+```js
+(function bootstrapConfig(target) {
+  var config = {
+    SUPABASE_URL: 'https://your-project.supabase.co',
+    SUPABASE_ANON_KEY: 'public-anon-key'
+  };
+  if (typeof globalThis !== 'undefined') {
+    globalThis.GENKI_CONFIG = config;
+  }
+  if (target && !target.GENKI_CONFIG) {
+    target.GENKI_CONFIG = config;
+  }
+})(typeof window !== 'undefined' ? window : self);
+```
+
+Netlify/Vercel can generate this file during build (e.g. via `cp resources/javascript/config.example.js resources/javascript/config.js` and env substitution) so secrets stay outside version control.
+
+### Supabase Schema
+
+1. Create a Supabase project, enable email magic links, and invite your own email. Magic links redirect back to `/` by default.
+2. Run the SQL below in the Supabase SQL Editor:
+
+```sql
+create table if not exists profile_settings (
+  user_id uuid primary key references auth.users on delete cascade,
+  settings jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create table if not exists progress_snapshots (
+  user_id uuid not null references auth.users on delete cascade,
+  key text not null,
+  payload jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default timezone('utc', now()),
+  primary key (user_id, key)
+);
+
+alter table profile_settings enable row level security;
+alter table progress_snapshots enable row level security;
+
+create policy "owner-can-read" on profile_settings
+  for select using (auth.uid() = user_id);
+
+create policy "owner-can-upsert" on profile_settings
+  for insert with check (auth.uid() = user_id)
+  using (auth.uid() = user_id);
+
+create policy "owner-can-read" on progress_snapshots
+  for select using (auth.uid() = user_id);
+
+create policy "owner-can-upsert" on progress_snapshots
+  for insert with check (auth.uid() = user_id)
+  using (auth.uid() = user_id);
+```
+
+3. Under **Authentication → Providers → Email**, disable password signups, enable magic links, and (optionally) restrict to your domain/email.
+
+### Auth & Sync Flow
+
+* A loader injected by `head.min.js` fetches `config.js`, loads the Supabase JS SDK, and bootstraps `resources/javascript/modules/bootstrap.js` on every page.
+* `bootstrap.js` gates the UI until a Supabase session exists. Unauthenticated visitors are redirected to `/login.html`, which exposes a magic-link form powered by `resources/javascript/modules/login.js`.
+* Once authenticated, `syncController` mirrors selected `localStorage` keys up to Supabase (`profile_settings` for preferences, `progress_snapshots` for results/custom content). A 10‑second poll plus `online` events trigger uploads; Workbox Background Sync retries failed Supabase writes while offline.
+* Remote snapshots use `updated_at` timestamps for last-writer-wins merges. Local data remains available immediately and is updated after a remote pull if the server version is newer than the last local sync.
+
+### PWA & Offline
+
+* `manifest.webmanifest` and new icons (in `resources/images/icons/`) enable install prompts.
+* The service worker (`src/sw.ts` → `resources/javascript/sw.js`) precaches the shell, caches lessons/assets, and queues Supabase mutations with Workbox Background Sync.
+* `bootstrap.js` registers the service worker once the user is authenticated (HTTPS or `localhost` only).
+
+### Deployment Checklist
+
+1. Ensure `resources/javascript/config.js` will be generated with real Supabase credentials in your deploy pipeline.
+2. Run `pnpm run build` before pushing or deploying so the compiled JS and service worker stay in sync with the TypeScript sources.
+3. When rotating Supabase keys, rebuild the project and invalidate old deployments (service workers precache the bundle).
+4. After deploying, test:
+    * magic-link login
+    * offline usage + background sync (toggle devtools → offline, make progress, go back online)
+    * multi-device merge (two browsers signed in with the same account)
+
 ## Folder Structure
 
 The project is organized into the following main directories:

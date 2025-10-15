@@ -1,0 +1,21 @@
+{
+  "name": "billgufran-genki-fork",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "pnpm run build:ts && pnpm run build:sw",
+    "build:ts": "tsc -p tsconfig.json",
+    "build:sw": "tsc -p tsconfig.sw.json && workbox injectManifest workbox-config.js",
+    "watch": "tsc -p tsconfig.json --watch",
+    "test": "echo \"No automated tests configured\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.75.0",
+    "typescript": "^5.9.3",
+    "workbox-cli": "^7.3.0"
+  }
+}
