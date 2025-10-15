@@ -19,24 +19,10 @@ The fork adds installable PWA support, passwordless authentication, and Supabase
 
 ### Runtime Configuration
 
-Create `resources/javascript/config.js` (not committed; see `resources/javascript/config.example.js`) with your Supabase project URL and anon key:
+1. Copy `.env.example` to `.env` and set `SUPABASE_URL` and `SUPABASE_ANON_KEY` with your project values (anon key is safe for the browser when RLS is enabled).
+2. Run `pnpm run generate:config` (or `pnpm run build`, which calls it automatically). The script reads `.env` plus any shell environment variables and emits `resources/javascript/config.js`—ignored by git—using the wrapped configuration format expected by the bootstrapper.
 
-```js
-(function bootstrapConfig(target) {
-  var config = {
-    SUPABASE_URL: 'https://your-project.supabase.co',
-    SUPABASE_ANON_KEY: 'public-anon-key'
-  };
-  if (typeof globalThis !== 'undefined') {
-    globalThis.GENKI_CONFIG = config;
-  }
-  if (target && !target.GENKI_CONFIG) {
-    target.GENKI_CONFIG = config;
-  }
-})(typeof window !== 'undefined' ? window : self);
-```
-
-Netlify/Vercel can generate this file during build (e.g. via `cp resources/javascript/config.example.js resources/javascript/config.js` and env substitution) so secrets stay outside version control.
+In CI/CD, expose the same variables as environment settings, run `pnpm run generate:config`, then execute the rest of your build/deploy pipeline. This keeps the site host-agnostic; no platform-specific features are required.
 
 ### Supabase Schema
 

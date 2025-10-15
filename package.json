@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "build": "pnpm run build:ts && pnpm run build:sw",
+    "generate:config": "node scripts/gen-config.cjs",
+    "build": "pnpm run generate:config && pnpm run build:ts && pnpm run build:sw",
     "build:ts": "tsc -p tsconfig.json",
     "build:sw": "tsc -p tsconfig.sw.json && workbox injectManifest workbox-config.js",
     "watch": "tsc -p tsconfig.json --watch",
