@@ -47,18 +47,28 @@ create table if not exists progress_snapshots (
 alter table profile_settings enable row level security;
 alter table progress_snapshots enable row level security;
 
-create policy "owner-can-read" on profile_settings
-  for select using (auth.uid() = user_id);
-
-create policy "owner-can-upsert" on profile_settings
-  for insert with check (auth.uid() = user_id)
+create policy "profile-select" on profile_settings
+  for select
   using (auth.uid() = user_id);
 
-create policy "owner-can-read" on progress_snapshots
-  for select using (auth.uid() = user_id);
+create policy "profile-insert" on profile_settings
+  for insert
+  with check (auth.uid() = user_id);
 
-create policy "owner-can-upsert" on progress_snapshots
-  for insert with check (auth.uid() = user_id)
+create policy "profile-update" on profile_settings
+  for update
+  using (auth.uid() = user_id);
+
+create policy "progress-select" on progress_snapshots
+  for select
+  using (auth.uid() = user_id);
+
+create policy "progress-insert" on progress_snapshots
+  for insert
+  with check (auth.uid() = user_id);
+
+create policy "progress-update" on progress_snapshots
+  for update
   using (auth.uid() = user_id);
 ```
 
