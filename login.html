@@ -8,21 +8,40 @@
     <link rel="icon" href="resources/images/genkico.ico">
     <link rel="stylesheet" href="resources/css/stylesheet.min.css">
     <style>
-      #magic-link-status[data-error="true"] { color: #d93025; }
-      #magic-link-status[data-error="false"] { color: #1a73e8; }
+      #otp-status[data-error="true"] { color: #d93025; }
+      #otp-status[data-error="false"] { color: #1a73e8; }
+      #otp-form label { font-weight: bold; display: flex; flex-direction: column; gap: 0.35rem; }
+      #otp-form input { padding: 0.75rem; font-size: 1rem; border-radius: 0.5rem; border: 1px solid rgba(17,17,17,0.15); }
+      #otp-form .otp-inputs { display: flex; flex-direction: column; gap: 1rem; }
+      #otp-form .otp-inline { display: flex; flex-direction: column; gap: 1rem; }
+      @media (min-width: 480px) {
+        #otp-form .otp-inline { flex-direction: row; align-items: flex-end; }
+        #otp-form .otp-inline label { flex: 1; }
+      }
     </style>
     <script src="resources/javascript/head.min.js"></script>
   </head>
   <body class="login-page">
     <main style="max-width: 32rem; margin: 4rem auto; padding: 2rem; background: rgba(255, 255, 255, 0.9); border-radius: 1rem; box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.1);">
       <h1 style="margin-top: 0;">Sign in</h1>
-      <p>Enter your email address and we will send you a one-time login link.</p>
-      <form id="magic-link-form" style="display: flex; flex-direction: column; gap: 1rem;">
-        <label for="magic-link-email" style="font-weight: bold;">Email</label>
-        <input id="magic-link-email" type="email" required placeholder="you@example.com" style="padding: 0.75rem; font-size: 1rem;">
-        <button type="submit" class="button" style="align-self: flex-start;">Send magic link</button>
+      <p>Enter your email address to receive a 6-digit code. Paste the code below to finish signing in.</p>
+      <form id="otp-form" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="otp-inputs">
+          <label for="otp-email">
+            Email
+            <input id="otp-email" type="email" required placeholder="you@example.com" autocomplete="email">
+          </label>
+          <div class="otp-inline" id="otp-step" hidden>
+            <label for="otp-token" style="flex: 1;">
+              One-time code
+              <input id="otp-token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+            </label>
+            <button type="button" class="button opt-off" id="otp-resend" style="align-self: flex-start; min-width: 10rem;">Resend code</button>
+          </div>
+        </div>
+        <button type="submit" class="button" id="otp-submit" style="align-self: flex-start; min-width: 10rem;">Email sign-in code</button>
       </form>
-      <p id="magic-link-status" data-error="false" style="margin-top: 1.5rem;"></p>
+      <p id="otp-status" data-error="false" style="margin-top: 1.5rem;"></p>
     </main>
     <script type="module" src="resources/javascript/modules/login.js"></script>
   </body>

@@ -11,59 +11,139 @@ async function setupLoginPage(): Promise<void> {
 }
 
 async function init(): Promise<void> {
-  const form = document.querySelector<HTMLFormElement>('#magic-link-form');
-  const emailInput = document.querySelector<HTMLInputElement>('#magic-link-email');
-  const status = document.querySelector<HTMLElement>('#magic-link-status');
-  const submitButton = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+  const form = document.querySelector<HTMLFormElement>('#otp-form');
+  const emailInput = document.querySelector<HTMLInputElement>('#otp-email');
+  const tokenInput = document.querySelector<HTMLInputElement>('#otp-token');
+  const status = document.querySelector<HTMLElement>('#otp-status');
+  const submitButton = document.querySelector<HTMLButtonElement>('#otp-submit');
+  const otpStep = document.querySelector<HTMLDivElement>('#otp-step');
+  const resendButton = document.querySelector<HTMLButtonElement>('#otp-resend');
+
+  if (!form || !emailInput || !tokenInput || !status || !submitButton || !otpStep || !resendButton) {
+    console.error('Login form markup missing required elements.');
+    return;
+  }
+
+  const emailField = emailInput;
+  const tokenField = tokenInput;
+  const statusEl = status;
+  const submitEl = submitButton;
+  const otpContainer = otpStep;
+  const resendEl = resendButton;
+
+  let otpRequested = false;
+  let currentEmail = '';
+  resendEl.style.display = 'none';
 
   try {
     await authController.init();
   } catch (error) {
-    updateStatus(status, 'Unable to initialise authentication. Check your configuration.', true);
+    updateStatus(statusEl, 'Unable to initialise authentication. Check your configuration.', true);
     console.error(error);
   }
 
   authController.onChange((state) => {
     if (state.status === 'authenticated') {
-      window.location.replace('/');
+      updateStatus(statusEl, 'Signed in. Redirecting…', false);
+      window.setTimeout(() => {
+        window.location.replace('/');
+      }, 500);
     }
   });
-
-  if (!form || !emailInput || !status || !submitButton) {
-    console.error('Login form markup missing required elements.');
-    return;
-  }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const email = emailInput.value.trim();
+    if (!otpRequested) {
+      await requestCode();
+    } else {
+      await verifyCode();
+    }
+  });
 
-    if (!email) {
-      updateStatus(status, 'Please enter your email address.', true);
+  resendEl.addEventListener('click', async () => {
+    await requestCode(true);
+  });
+
+  emailField.addEventListener('input', () => {
+    const normalized = emailField.value.trim().toLowerCase();
+    if (otpRequested && normalized !== currentEmail) {
+      otpRequested = false;
+      currentEmail = '';
+      otpContainer.hidden = true;
+      resendEl.style.display = 'none';
+      submitEl.textContent = 'Email sign-in code';
+      tokenField.value = '';
+      updateStatus(statusEl, 'Enter your email address to receive a code.', false);
+    }
+  });
+
+  async function requestCode(isResend = false): Promise<void> {
+    const email = emailField.value.trim().toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      updateStatus(statusEl, 'Enter a valid email address.', true);
+      emailField.focus();
       return;
     }
 
-    submitButton.disabled = true;
-    updateStatus(status, 'Sending magic link…', false);
+    setPending(true);
+    updateStatus(statusEl, isResend ? 'Resending sign-in code…' : 'Emailing sign-in code…', false);
 
     try {
-      await authController.signInWithOtp(email);
-      updateStatus(
-        status,
-        'Check your inbox for the magic link. You can close this tab after using the link.',
-        false
-      );
+      await authController.requestEmailOtp(email);
+      currentEmail = email;
+      otpRequested = true;
+      otpContainer.hidden = false;
+      resendEl.style.display = '';
+      submitEl.textContent = 'Verify & sign in';
+      updateStatus(statusEl, `Enter the 6-digit code sent to ${email}.`, false);
+      window.setTimeout(() => tokenField.focus(), 0);
     } catch (error) {
       console.error(error);
-      updateStatus(
-        status,
-        error instanceof Error ? error.message : 'Unable to send magic link. Try again later.',
-        true
-      );
+      const message =
+        error instanceof Error ? error.message : 'Unable to send the code. Please try again later.';
+      updateStatus(statusEl, message, true);
     } finally {
-      submitButton.disabled = false;
+      setPending(false);
     }
-  });
+  }
+
+  async function verifyCode(): Promise<void> {
+    const token = tokenField.value.trim();
+
+    if (!currentEmail) {
+      updateStatus(statusEl, 'Request a code before verifying.', true);
+      return;
+    }
+
+    if (!token || token.length < 4) {
+      updateStatus(statusEl, 'Enter the 6-digit code from your email.', true);
+      tokenField.focus();
+      return;
+    }
+
+    setPending(true);
+    updateStatus(statusEl, 'Verifying code…', false);
+
+    try {
+      await authController.verifyEmailOtp(currentEmail, token);
+      updateStatus(statusEl, 'Code verified. Finishing sign-in…', false);
+    } catch (error) {
+      console.error(error);
+      const message =
+        error instanceof Error ? error.message : 'Unable to verify the code. Request a new one.';
+      updateStatus(statusEl, message, true);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function setPending(isPending: boolean): void {
+    submitEl.disabled = isPending;
+    resendEl.disabled = isPending;
+    emailField.disabled = isPending && !otpRequested;
+    tokenField.disabled = isPending && otpRequested;
+  }
 }
 
 function updateStatus(target: HTMLElement | null, message: string, isError: boolean): void {

@@ -3,7 +3,7 @@ import type { PostgrestError, SupabaseClient, User } from '@supabase/supabase-js
 type PreferencePayload = Record<string, string>;
 type ProgressPayload = Record<string, string>;
 
-interface SyncMeta {
+export interface SyncMeta {
   preferenceHash: string | null;
   progressHash: string | null;
   preferenceLastSyncedAt: string | null;
@@ -34,6 +34,7 @@ export class SyncController {
     this.supabase = client;
     this.user = user;
     this.meta = this.loadMeta();
+    this.emitMetaUpdate();
     void this.pullRemote();
     this.startPolling();
     window.addEventListener('storage', this.handleCrossTabUpdate);
@@ -109,6 +110,8 @@ export class SyncController {
       if (progressData?.payload) {
         this.applyRemoteProgress(progressData.payload as ProgressPayload, progressData.updated_at as string);
       }
+
+      this.emitMetaUpdate();
     } catch (error) {
       console.warn('Unexpected error while pulling remote data', error);
     }
@@ -186,6 +189,7 @@ export class SyncController {
       }
 
       this.saveMeta(meta);
+      this.emitMetaUpdate();
     } catch (error) {
       console.warn('Failed pushing local changes, they will retry when connectivity returns.', error);
     } finally {
@@ -212,6 +216,7 @@ export class SyncController {
     meta.preferenceHash = computeHash(payload);
     meta.preferenceRemoteUpdatedAt = updatedAt;
     this.saveMeta(meta);
+    this.emitMetaUpdate();
   }
 
   private applyRemoteProgress(payload: ProgressPayload, updatedAtIso: string): void {
@@ -233,6 +238,7 @@ export class SyncController {
     meta.progressHash = computeHash(payload);
     meta.progressRemoteUpdatedAt = updatedAt;
     this.saveMeta(meta);
+    this.emitMetaUpdate();
   }
 
   private captureLocalState(): { preferences: PreferencePayload; progress: ProgressPayload } {
@@ -291,6 +297,22 @@ export class SyncController {
       localStorage.setItem(META_STORAGE_KEY, JSON.stringify(meta));
     } catch (error) {
       console.warn('Unable to persist sync metadata.', error);
+    }
+  }
+
+  private emitMetaUpdate(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('genki-sync-meta', {
+          detail: { meta: this.meta }
+        })
+      );
+    } catch (error) {
+      console.warn('Unable to dispatch sync metadata event.', error);
     }
   }
 }

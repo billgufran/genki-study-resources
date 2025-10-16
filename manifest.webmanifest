@@ -3,7 +3,12 @@
   "short_name": "Genki",
   "description": "Offline-friendly Genki study companion with synced progress and exercises.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "capture_links": "existing-client-navigate",
   "background_color": "#111111",
   "theme_color": "#f15a24",
   "icons": [

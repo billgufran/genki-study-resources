@@ -41,18 +41,30 @@ export class AuthController {
             this.listeners.delete(callback);
         };
     }
-    async signInWithOtp(email) {
+    async requestEmailOtp(email) {
         const supabaseClient = this.client;
         const { error } = await supabaseClient.auth.signInWithOtp({
             email,
             options: {
-                emailRedirectTo: window.location.origin + '/',
                 shouldCreateUser: false
             }
         });
         if (error) {
             throw new Error(error.message);
         }
+    }
+    async verifyEmailOtp(email, token) {
+        const supabaseClient = this.client;
+        const { data, error } = await supabaseClient.auth.verifyOtp({
+            email,
+            token,
+            type: 'email'
+        });
+        if (error) {
+            throw new Error(error.message);
+        }
+        const session = data.session ?? null;
+        this.updateState(session ? 'authenticated' : 'unauthenticated', session);
     }
     async signOut() {
         const supabaseClient = this.client;

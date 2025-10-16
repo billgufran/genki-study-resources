@@ -59,12 +59,11 @@ export class AuthController {
     };
   }
 
-  async signInWithOtp(email: string): Promise<void> {
+  async requestEmailOtp(email: string): Promise<void> {
     const supabaseClient = this.client;
     const { error } = await supabaseClient.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin + '/',
         shouldCreateUser: false
       }
     });
@@ -72,6 +71,22 @@ export class AuthController {
     if (error) {
       throw new Error(error.message);
     }
+  }
+
+  async verifyEmailOtp(email: string, token: string): Promise<void> {
+    const supabaseClient = this.client;
+    const { data, error } = await supabaseClient.auth.verifyOtp({
+      email,
+      token,
+      type: 'email'
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const session = data.session ?? null;
+    this.updateState(session ? 'authenticated' : 'unauthenticated', session);
   }
 
   async signOut(): Promise<void> {
