@@ -1402,14 +1402,28 @@
       // save results in local storage
       if (storageOK && Genki.active.exercise.length > 0 && !/appendix|study-tools/.test(Genki.active.exercise[0])) {
         var lesson = Genki.active.exercise[0],
-            genkiEdition = localStorage.GenkiEdition,
-            lessonsResults = JSON.parse(localStorage.Results);
-        
-        if(!lessonsResults[genkiEdition]) lessonsResults[genkiEdition] = {};
-        
+            genkiEdition = (storageOK && localStorage.GenkiEdition) ? localStorage.GenkiEdition : GenkiEd,
+            lessonsResults;
+
+        try {
+          lessonsResults = localStorage.Results ? JSON.parse(localStorage.Results) : {};
+        } catch (err) {
+          console.warn('Resetting stored exercise results due to invalid data.', err);
+          lessonsResults = {};
+        }
+
+        if (!genkiEdition) {
+          genkiEdition = GenkiEd;
+        }
+
+        if (!lessonsResults[genkiEdition]) {
+          lessonsResults[genkiEdition] = {};
+        }
+
         var editionLessonsResults = lessonsResults[genkiEdition];
         editionLessonsResults[lesson] = (typeof editionLessonsResults[lesson] == 'undefined' || Genki.stats.score > editionLessonsResults[lesson]) ? Genki.stats.score : editionLessonsResults[lesson];
 
+        localStorage.GenkiEdition = genkiEdition;
         localStorage.Results = JSON.stringify(lessonsResults);
 
         // refresh the exercise list with the new results
