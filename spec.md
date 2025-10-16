@@ -79,7 +79,9 @@ create policy "progress-update" on progress_snapshots
 * A loader injected by `head.min.js` fetches `config.js`, loads the Supabase JS SDK, and bootstraps `resources/javascript/modules/bootstrap.js` on every page.
 * `bootstrap.js` gates the UI until a Supabase session exists. Unauthenticated visitors are redirected to `/login.html`, which exposes a magic-link form powered by `resources/javascript/modules/login.js`.
 * Once authenticated, `syncController` mirrors selected `localStorage` keys up to Supabase (`profile_settings` for preferences, `progress_snapshots` for results/custom content). A 10‑second poll plus `online` events trigger uploads; Workbox Background Sync retries failed Supabase writes while offline.
-* Remote snapshots use `updated_at` timestamps for last-writer-wins merges. Local data remains available immediately and is updated after a remote pull if the server version is newer than the last local sync.
+* Each device stores sync metadata in `localStorage.__genki_sync_meta__` (hashes + timestamps). On startup the controller loads that metadata, **pulls from Supabase first**, and only pushes if the recomputed local hashes differ from the remote snapshot. Remote rows carry an `updated_at` timestamp and always win when they are newer than the last local sync — even on a device that never logged in before — so a stale client cannot overwrite fresher server state.  
+  *Example*: Remote progress = 50 %, Local A = 50 %, Local B (never logged in) = 30 %. When Local B signs in, the pull sees the remote 50 % as newer, applies it locally, and the subsequent push becomes a no-op.
+* Manual “Sync now” (from the Settings modal) simply queues an immediate push; if the hashes still match, nothing is written.
 
 ### PWA & Offline
 
