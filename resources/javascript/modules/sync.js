@@ -1,6 +1,7 @@
 const META_STORAGE_KEY = '__genki_sync_meta__';
 const PROGRESS_KEYS = new Set(['Results', 'customVocab', 'customSpelling', 'customQuiz', 'customWrittenQuiz']);
 const PROGRESS_PREFIXES = ['progress_', 'study_', 'genkiResults_', 'customResults_'];
+const RESERVED_PREF_KEYS = new Set(['genki-supabase-auth']);
 export class SyncController {
     constructor() {
         this.supabase = null;
@@ -160,6 +161,9 @@ export class SyncController {
             return;
         }
         Object.entries(payload).forEach(([key, value]) => {
+            if (RESERVED_PREF_KEYS.has(key)) {
+                return;
+            }
             try {
                 localStorage.setItem(key, value);
             }
@@ -206,7 +210,7 @@ export class SyncController {
             if (isProgressKey(key)) {
                 progress[key] = value;
             }
-            else {
+            else if (!RESERVED_PREF_KEYS.has(key)) {
                 preferences[key] = value;
             }
         }
